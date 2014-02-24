@@ -62,6 +62,13 @@ struct sniff_tcp {
 	u_short th_urp;                 /* urgent pointer */
 };
 
+struct sniff_udp {
+    u_short uh_sport;               /* source port */
+    u_short uh_dport;               /* destination port */
+    u_short uh_ulen;                /* datagram length */
+    u_short uh_sum;                 /* checksum */
+};
+
 
 void printMACAddr(const u_char* host) {
     int i = 0;
@@ -78,6 +85,7 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
 	const struct sniff_ethernet *ethernet;
 	const struct sniff_ip *ip;
 	const struct sniff_tcp *tcp;
+    const struct sniff_udp *udp;
 	const char *payload;
 
 	int size_ip;
@@ -114,12 +122,36 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
             printf("other ");
             break;
     }
+
+    // print ethernet addresses
     printMACAddr(ethernet->ether_shost);
     printf(" ");
     printMACAddr(ethernet->ether_dhost);
     printf(" ");
+
+    // print IP src/dest addresses
     printf("%s ", inet_ntoa(ip->ip_src));
     printf("%s ", inet_ntoa(ip->ip_dst));
+
+
+    // TCP info
+    if (tcpUdp == 1) {
+        tcp = (struct sniff_tcp*)(packet + SIZE_ETHERNET + size_ip);
+        size_tcp = TH_OFF(tcp)*4;
+        // print payload size
+        size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
+        printf("%d ", size_payload);
+        printf("%d ", ntohs(tcp->th_sport));
+        printf("%d ", ntohs(tcp->th_dport));
+        printf("0x%04x ", ntohs(tcp->th_sum));
+    }
+
+    // UDP info
+    else if (tcpUdp == 2) {
+        udp = (struct sniff_udp*)(packet + SIZE_ETHERNET + size_ip);
+        printf("%d ", ntohs(udp->uh_sport));
+        printf("%d ", ntohs(udp->uh_dport));
+    }
     printf("\n");
 }
 
