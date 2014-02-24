@@ -69,7 +69,7 @@ struct sniff_udp {
     u_short uh_sum;                 /* checksum */
 };
 
-
+/** utilitiy function which prints MAC address in proper format **/
 void printMACAddr(const u_char* host) {
     int i = 0;
     for (i = 0; i < ETHER_ADDR_LEN; i++) {
@@ -91,6 +91,9 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
 	int size_ip;
 	int size_tcp;
 	int size_payload;
+
+    // length of text used for checksum
+    int size_csum;
 
     // tells us whether packet is TCP (1), UDP (2), other (0)
     int tcpUdp = 0;
@@ -129,7 +132,6 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
     printMACAddr(ethernet->ether_dhost);
     printf(" ");
 
-    // print IP src/dest addresses
     printf("%s ", inet_ntoa(ip->ip_src));
     printf("%s ", inet_ntoa(ip->ip_dst));
 
@@ -138,17 +140,23 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
     if (tcpUdp == 1) {
         tcp = (struct sniff_tcp*)(packet + SIZE_ETHERNET + size_ip);
         size_tcp = TH_OFF(tcp)*4;
-        // print payload size
         size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
         printf("%d ", size_payload);
         printf("%d ", ntohs(tcp->th_sport));
         printf("%d ", ntohs(tcp->th_dport));
         printf("0x%04x ", ntohs(tcp->th_sum));
+        size_csum = ntos(ip->ip_len) - size_ip;
+
     }
 
     // UDP info
     else if (tcpUdp == 2) {
         udp = (struct sniff_udp*)(packet + SIZE_ETHERNET + size_ip);
+        
+        // UDP Header is 8 bytes
+        size_payload = ntohs(ip->ip_len) - (size_ip + 8);
+
+        printf("%d ", size_payload);
         printf("%d ", ntohs(udp->uh_sport));
         printf("%d ", ntohs(udp->uh_dport));
     }
