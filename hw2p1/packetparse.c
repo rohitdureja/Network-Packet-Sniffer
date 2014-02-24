@@ -63,6 +63,17 @@ struct sniff_tcp {
 };
 
 
+void printMACAddr(const u_char* host) {
+    int i = 0;
+    for (i = 0; i < ETHER_ADDR_LEN; i++) {
+        if (i < ETHER_ADDR_LEN-1) {
+            printf("%02x.", host[i]);
+        }
+        else printf("%02x", host[i]);
+    }
+}
+
+
 void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_char *packet){
 	const struct sniff_ethernet *ethernet;
 	const struct sniff_ip *ip;
@@ -73,16 +84,43 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
 	int size_tcp;
 	int size_payload;
 
+    // tells us whether packet is TCP (1), UDP (2), other (0)
+    int tcpUdp = 0;
 	// ethernet header
 	ethernet = (struct sniff_ethernet*)(packet);
+    
+    // not an IP packet
+    if (ethernet->ether_type != 8) {
+        printf("other ");
+        printMACAddr(ethernet->ether_shost);
+        printMACAddr(ethernet->ether_dhost);
+        printf("\n");
+        return;
+    }
 
 	// ip header
 	ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
 	size_ip = IP_HL(ip)*4;
-
-	printf("Destination: %c\n", *(ethernet->ether_dhost));
-	printf("\n\n");
-
+    switch(ip->ip_p) {
+        case IPPROTO_TCP:
+            printf("TCP ");
+            tcpUdp = 1;
+            break;
+        case IPPROTO_UDP:
+            printf("UDP ");
+            tcpUdp = 2;
+            break;
+        default:
+            printf("other ");
+            break;
+    }
+    printMACAddr(ethernet->ether_shost);
+    printf(" ");
+    printMACAddr(ethernet->ether_dhost);
+    printf(" ");
+    printf("%s ", inet_ntoa(ip->ip_src));
+    printf("%s ", inet_ntoa(ip->ip_dst));
+    printf("\n");
 }
 
 
