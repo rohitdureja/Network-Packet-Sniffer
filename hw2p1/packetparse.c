@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "pcap.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -80,6 +81,34 @@ void printMACAddr(const u_char* host) {
     }
 }
 
+u_short computeChecksum(const void* data, int len) {
+    int sum;
+    const u_short* word;
+    u_short tmp;
+
+    sum = 0;
+    word = data;
+
+    while (len >= 2) {
+        sum += *word++;
+        len -= 2;
+    }
+
+    // odd length
+    if (len > 0) {
+        *(u_char *)(&tmp) = *(u_char *)word;
+        sum += tmp;
+    }
+
+    // extract the carry over bits and add them back into lower 16 bits
+    sum = (sum >> 16) + (sum & 0xffff);
+    // add remaining carry over bits
+    sum += (sum >> 16);
+    return ((u_short)~sum);
+}
+
+    
+
 
 void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_char *packet){
 	const struct sniff_ethernet *ethernet;
@@ -94,7 +123,8 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
 
     // length of text used for checksum
     int size_csum;
-
+    // computed TCP Checksum used for verification
+    int tcp_csum;
     // tells us whether packet is TCP (1), UDP (2), other (0)
     int tcpUdp = 0;
 	// ethernet header
@@ -112,6 +142,8 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
 	// ip header
 	ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
 	size_ip = IP_HL(ip)*4;
+    
+    // figures out type of protocol
     switch(ip->ip_p) {
         case IPPROTO_TCP:
             printf("TCP ");
@@ -145,7 +177,13 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
         printf("%d ", ntohs(tcp->th_sport));
         printf("%d ", ntohs(tcp->th_dport));
         printf("0x%04x ", ntohs(tcp->th_sum));
-        size_csum = ntos(ip->ip_len) - size_ip;
+        size_csum = ntohs(ip->ip_len) - size_ip;
+        tcp_csum = computeChecksum(tcp, size_csum);
+        printf("0x%04x ", ntohs(tcp_csum));
+        if (ntohs(tcp_csum) == ntohs(tcp->th_sum)) {
+            printf("Y");
+        }
+        else printf("N");
 
     }
 
@@ -169,7 +207,11 @@ int main(int argc, char *argv[])
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t *handle;	
 
-	handle = pcap_open_offline("sampleimf.pcap",errbuf);
+    if (argc < 2) {
+        printf("Need to specify filename!\n");
+        exit(1);
+    }
+	handle = pcap_open_offline(argv[1],errbuf);
 	
 	if(handle==NULL){
 	    fprintf(stderr,"%s",errbuf);

@@ -1,3 +1,4 @@
 #! /bin/bash
+make clean
 make
-./packetparse
+./packetparse sampleimf.pcap
