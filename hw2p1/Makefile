@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-lpcap -o
 
-packetparse: packetparse.c
+all: packetparse.c
 	$(CC) $(CFLAGS) packetparse packetparse.c
 
 parse: packetparse
