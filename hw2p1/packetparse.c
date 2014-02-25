@@ -207,24 +207,32 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
         printf("%d ", ntohs(udp->uh_sport));
         printf("%d ", ntohs(udp->uh_dport));
     }
+
+    // Other info
+    else{
+        size_payload = ntohs(ip->ip_len) - size_ip;
+        printf("%d ", size_payload);
+    }
     printf("\n");
 }
 
 
 int main(int argc, char *argv[])
 {
-	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t *handle;	
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *handle;	
     if (argc < 2) {
         printf("Need to specify filename!\n");
         exit(1);
     }
-	handle = pcap_open_offline(argv[1],errbuf);
-	if(handle==NULL){
-	    fprintf(stderr,"%s",errbuf);
-	}
-	pcap_loop(handle,0,packet_handler,NULL);
-
+    handle = pcap_open_offline(argv[1],errbuf);
+    if(handle==NULL){
+        fprintf(stderr,"%s",errbuf);
+    }
+    else{
+        pcap_loop(handle,0,packet_handler,NULL);
         printf("%d %d %d %d\r\n",tcp_count+udp_count+other_count,tcp_count,udp_count,other_count);
-	return 0;
+    }
+
+    return 0;
 }
