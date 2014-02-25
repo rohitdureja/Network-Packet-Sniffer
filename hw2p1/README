@@ -49,4 +49,13 @@ The packets are read one at a time and the type of packet is determined. If IP, 
 
 ---
 
+References
 
+Code for sniffing packets has been derived from www.tcpdump.org/sniffex.c
+
+Code for calculating the checksum has been dervied from several sources :
+	1. http://minirighi.sourceforge.net/html/tcp_8c-source.html
+	2. http://www.bloof.de/tcp_checksumming
+	3. http://www.thegeekstuff.com/2012/05/ip-header-checksum/
+
+---
