@@ -69,6 +69,10 @@ struct sniff_udp {
     u_short uh_sum;                 /* checksum */
 };
 
+int tcp_count = 0;
+int udp_count = 0;
+int other_count = 0;
+
 /** utilitiy function which prints MAC address in proper format **/
 void printMACAddr(const u_char* host) 
 {
@@ -119,7 +123,7 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
 	const struct sniff_ethernet *ethernet;
 	const struct sniff_ip *ip;
 	const struct sniff_tcp *tcp;
-    const struct sniff_udp *udp;
+        const struct sniff_udp *udp;
 	const char *payload;
 
 	int size_ip;
@@ -153,13 +157,16 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
         case IPPROTO_TCP:
             printf("TCP ");
             tcpUdp = 1;
+            tcp_count ++;
             break;
         case IPPROTO_UDP:
             printf("UDP ");
             tcpUdp = 2;
+            udp_count++;
             break;
         default:
             printf("other ");
+            other_count++;
             break;
     }
 
@@ -217,5 +224,7 @@ int main(int argc, char *argv[])
 	    fprintf(stderr,"%s",errbuf);
 	}
 	pcap_loop(handle,0,packet_handler,NULL);
+
+        printf("%d %d %d %d\r\n",tcp_count+udp_count+other_count,tcp_count,udp_count,other_count);
 	return 0;
 }
