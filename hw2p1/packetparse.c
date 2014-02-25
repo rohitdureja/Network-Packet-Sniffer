@@ -4,7 +4,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-
 /* ethernet headers are always exactly 14 bytes [1] */
 #define SIZE_ETHERNET 14
 
@@ -13,14 +12,14 @@
 
 /* Ethernet header */
 struct sniff_ethernet {
-  u_char  ether_dhost[ETHER_ADDR_LEN];    /* destination host address */
-  u_char  ether_shost[ETHER_ADDR_LEN];    /* source host address */
-  u_short ether_type;                     /* IP? ARP? RARP? etc */
+    u_char  ether_dhost[ETHER_ADDR_LEN];    /* destination host address */
+    u_char  ether_shost[ETHER_ADDR_LEN];    /* source host address */
+    u_short ether_type;                     /* IP? ARP? RARP? etc */
 };
 
 /* IP header */
 struct sniff_ip {
-	u_char  ip_vhl;                 /* version << 4 | header length >> 2 */
+    u_char  ip_vhl;                 /* version << 4 | header length >> 2 */
 	u_char  ip_tos;                 /* type of service */
 	u_short ip_len;                 /* total length */
 	u_short ip_id;                  /* identification */
@@ -32,7 +31,7 @@ struct sniff_ip {
 	u_char  ip_ttl;                 /* time to live */
 	u_char  ip_p;                   /* protocol */
 	u_short ip_sum;                 /* checksum */
-	struct  in_addr ip_src,ip_dst;  /* source and dest address */
+	struct in_addr ip_src,ip_dst;  /* source and dest address */
 };
 
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
@@ -71,45 +70,51 @@ struct sniff_udp {
 };
 
 /** utilitiy function which prints MAC address in proper format **/
-void printMACAddr(const u_char* host) {
+void printMACAddr(const u_char* host) 
+{
     int i = 0;
     for (i = 0; i < ETHER_ADDR_LEN; i++) {
         if (i < ETHER_ADDR_LEN-1) {
             printf("%02x.", host[i]);
         }
-        else printf("%02x", host[i]);
+            else printf("%02x", host[i]);
     }
 }
 
-u_short computeChecksum(const void* data, int len) {
-    int sum;
-    const u_short* word;
-    u_short tmp;
 
+int tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_t dest_addr)
+{
+    const uint16_t *buf=buff;
+    uint16_t *ip_src=(void *)&src_addr, *ip_dst=(void *)&dest_addr;
+    uint32_t sum;
+    size_t length=len;
+ 
+    // Calculate the sum                                            //
     sum = 0;
-    word = data;
-
-    while (len >= 2) {
-        sum += *word++;
-        len -= 2;
+    while (len > 1)
+    {
+            sum += *buf++;
+            if (sum & 0x80000000)
+                sum = (sum & 0xFFFF) + (sum >> 16);
+            len -= 2;
     }
-
-    // odd length
-    if (len > 0) {
-        *(u_char *)(&tmp) = *(u_char *)word;
-        sum += tmp;
-    }
-
-    // extract the carry over bits and add them back into lower 16 bits
-    sum = (sum >> 16) + (sum & 0xffff);
-    // add remaining carry over bits
-    sum += (sum >> 16);
-    return ((u_short)~sum);
+    if ( len & 1 )
+    // Add the padding if the packet lenght is odd          //
+        sum += *((uint8_t *)buf);
+        // Add the pseudo-header                                        //
+    sum += *(ip_src++);
+    sum += *ip_src;
+    sum += *(ip_dst++);
+    sum += *ip_dst;
+    sum += htons(IPPROTO_TCP);
+    sum += htons(length);
+    // Add the carries                                              //
+    while (sum >> 16)
+        sum = (sum & 0xFFFF) + (sum >> 16);
+            // Return the one's complement of sum                           //
+    return ( (uint16_t)(~sum)  );
 }
-
     
-
-
 void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_char *packet){
 	const struct sniff_ethernet *ethernet;
 	const struct sniff_ip *ip;
@@ -178,22 +183,19 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
         printf("%d ", ntohs(tcp->th_dport));
         printf("0x%04x ", ntohs(tcp->th_sum));
         size_csum = ntohs(ip->ip_len) - size_ip;
-        tcp_csum = computeChecksum(tcp, size_csum);
-        printf("0x%04x ", ntohs(tcp_csum));
-        if (ntohs(tcp_csum) == ntohs(tcp->th_sum)) {
+        tcp_csum = tcp_checksum(tcp, size_csum, inet_addr(inet_ntoa(ip->ip_src)),inet_addr(inet_ntoa(ip->ip_dst)));
+        if(tcp_csum)
+            printf("N");
+        else
             printf("Y");
-        }
-        else printf("N");
 
     }
 
     // UDP info
     else if (tcpUdp == 2) {
         udp = (struct sniff_udp*)(packet + SIZE_ETHERNET + size_ip);
-        
         // UDP Header is 8 bytes
         size_payload = ntohs(ip->ip_len) - (size_ip + 8);
-
         printf("%d ", size_payload);
         printf("%d ", ntohs(udp->uh_sport));
         printf("%d ", ntohs(udp->uh_dport));
@@ -206,19 +208,14 @@ int main(int argc, char *argv[])
 {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t *handle;	
-
     if (argc < 2) {
         printf("Need to specify filename!\n");
         exit(1);
     }
 	handle = pcap_open_offline(argv[1],errbuf);
-	
 	if(handle==NULL){
 	    fprintf(stderr,"%s",errbuf);
 	}
-	
 	pcap_loop(handle,0,packet_handler,NULL);
-	
-	
 	return 0;
 }
