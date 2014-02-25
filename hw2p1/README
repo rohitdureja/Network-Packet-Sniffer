@@ -1,0 +1,52 @@
+
+CIS 551: Computer and Network Security
+Homework II Part I
+Group Members:	Ashutosh Goel
+		Bolei Fu
+		Rohit Dureja
+
+---
+
+Repository Contents
+
+The repository consists of three files which are
+
+1. Makefile : automates the process of compiling and generating output
+2. packetparse.c : source file which reads packet data dump and parses it
+3. smtp.pcap : packet dump files generated using tcpdump
+
+--- 
+How to run?
+
+The source repository consists of a makefile which can be used to automate the process of compling and generating output. The makefile offers the following commands
+
+make all
+	compiles packetparse.c with the -lpcap condition
+
+make parse
+	run packetparse and parse the smtp.pcap dumpfile
+
+make clean
+	cleans the object code and generated txt files containing the parsed data
+
+---
+
+Procedural Information
+
+The pcap library is used to gather packet data. Instead of sniffing a live network socket, the pcap library is used to read from an offline dump file created using libpcap. The pcap_loop() reads one packet at a time and calls the packet handler.
+
+The packet handler consists of structures which have the same organization as packet data. Four strcutres are being used:
+1. sniff_ethernet
+	layout resembles ethernet packet header
+2. sniff_ip
+	layout resembles ip packet header
+3. sniff_tcp
+	layout resembles tcp packet header
+4. sniff_udp 
+	layout resembles udp packet header
+
+The packets are read one at a time and the type of packet is determined. If IP, the program continues exploring the packet otherwsie it discards it. If the packet is IP, it extract TCP information from it and generates output.
+
+---
+
+
