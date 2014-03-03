@@ -3,6 +3,8 @@
 #include "pcap.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <string.h>
+#include "datalist.h"
 
 /* ethernet headers are always exactly 14 bytes [1] */
 #define SIZE_ETHERNET 14
@@ -73,6 +75,8 @@ int tcp_count = 0;
 int udp_count = 0;
 int other_count = 0;
 
+struct connection_list *list = NULL;
+
 /** utilitiy function which prints MAC address in proper format **/
 void printMACAddr(const u_char* host) 
 {
@@ -118,12 +122,12 @@ int tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_t des
             // Return the one's complement of sum                           //
     return ( (uint16_t)(~sum)  );
 }
-    
-void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_char *packet){
+ 
+void packet_handler_hw2p1(u_char* user, const struct pcap_pkthdr *pkt_header, const u_char *packet){
 	const struct sniff_ethernet *ethernet;
 	const struct sniff_ip *ip;
 	const struct sniff_tcp *tcp;
-        const struct sniff_udp *udp;
+    const struct sniff_udp *udp;
 	const char *payload;
 
 	int size_ip;
@@ -216,6 +220,97 @@ void packet_handler(u_char* user, const struct pcap_pkthdr *pkt_header, const u_
     printf("\n");
 }
 
+void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, const u_char *packet) {
+    const struct sniff_ethernet *ethernet;
+    const struct sniff_ip *ip;
+    const struct sniff_tcp *tcp;
+    const struct sniff_udp *udp;
+    const char *payload;
+
+    struct packet_data packet_data;
+
+
+    int size_ip;
+    int size_tcp;
+    unsigned long size_payload;
+
+    // length of text used for checksum
+    int size_csum;
+    // computed TCP Checksum used for verification
+    int tcp_csum;
+    // tells us whether packet is TCP (1), UDP (2), other (0)
+    int tcpUdp = 0;
+    // ethernet header
+    ethernet = (struct sniff_ethernet*)(packet);
+    
+    // not an IP packet
+    if (ethernet->ether_type != 8) {
+        return;
+    }
+
+    // ip header
+    ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
+    size_ip = IP_HL(ip)*4;
+    
+    // figures out type of protocol
+    switch(ip->ip_p) {
+        case IPPROTO_TCP:
+            tcpUdp = 1;
+            tcp_count ++;
+            break;
+        case IPPROTO_UDP:
+            tcpUdp = 2;
+            udp_count++;
+            break;
+        default:
+            other_count++;
+            break;
+    }
+
+
+
+    // TCP info
+    if (tcpUdp == 1) {
+        tcp = (struct sniff_tcp*)(packet + SIZE_ETHERNET + size_ip);
+        size_tcp = TH_OFF(tcp)*4;
+        size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
+        size_csum = ntohs(ip->ip_len) - size_ip;
+        tcp_csum = tcp_checksum(tcp, size_csum, inet_addr(inet_ntoa(ip->ip_src)),inet_addr(inet_ntoa(ip->ip_dst)));
+        if(!tcp_csum) {
+            packet_data.th_sport = tcp->th_sport;
+            packet_data.th_dport = tcp->th_dport;
+            packet_data.th_flags = tcp->th_flags;
+            packet_data.payload_size = size_payload;
+            packet_data.th_flags = tcp->th_flags;
+            packet_data.ip_src = ip->ip_src;
+            packet_data.ip_dst = ip->ip_dst;
+
+
+            add_packet_to_connection_list(&list, packet_data);
+        }
+        else {}
+            //printf("Y");
+
+    }
+
+    // UDP info
+    else if (tcpUdp == 2) {
+        udp = (struct sniff_udp*)(packet + SIZE_ETHERNET + size_ip);
+        // UDP Header is 8 bytes
+        size_payload = ntohs(ip->ip_len) - (size_ip + 8);
+        //printf("%d ", size_payload);
+        //printf("%d ", ntohs(udp->uh_sport));
+        //printf("%d ", ntohs(udp->uh_dport));
+    }
+
+    // Other info
+    else{
+        size_payload = ntohs(ip->ip_len) - size_ip;
+        //printf("%d ", size_payload);
+    }
+
+    //printf("\n");
+}
 
 int main(int argc, char *argv[])
 {
@@ -225,13 +320,36 @@ int main(int argc, char *argv[])
         printf("Need to specify filename!\n");
         exit(1);
     }
-    handle = pcap_open_offline(argv[1],errbuf);
-    if(handle==NULL){
-        fprintf(stderr,"%s",errbuf);
+    if (argc == 2) {
+        if(!strcmp(argv[1],"-t")) {
+            printf("Need to specify filename!\n");
+            exit(1);
+        }
+        else
+        {
+            handle = pcap_open_offline(argv[1],errbuf);
+            if(handle==NULL) {
+                fprintf(stderr,"%s",errbuf);
+            }
+            else {
+                pcap_loop(handle,0,packet_handler_hw2p1,NULL);
+                printf("%d %d %d %d\r\n",tcp_count+udp_count+other_count,tcp_count,udp_count,other_count);
+            }
+        }
     }
-    else{
-        pcap_loop(handle,0,packet_handler,NULL);
-        printf("%d %d %d %d\r\n",tcp_count+udp_count+other_count,tcp_count,udp_count,other_count);
+    if (argc>2) {
+        if(!strcmp(argv[1], "-t")) {
+            handle = pcap_open_offline(argv[2],errbuf);
+            if(handle==NULL) {
+                fprintf(stderr,"%s",errbuf);
+            }
+            else {
+                pcap_loop(handle,0,packet_handler_hw2p2,NULL);
+                print_connection_list(&list);
+                /* write files here */
+
+            }
+        }
     }
 
     return 0;

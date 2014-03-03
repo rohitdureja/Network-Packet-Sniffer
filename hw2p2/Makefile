@@ -1,8 +1,16 @@
-HFILE = hashtable.c
-CFLAGS = -o
 CC = gcc
-OBJFILE = test
-INPUT = test.c
+CFLAGS = -lpcap -o
+HFILES = datalist.c
+PARSEFILE = packetparse.c
+OBJFILE = packetparse
+INPUTFILE = smtp.pcap
 
-all: $(HFILE) $(INPUT)
-	$(CC) $(HFILE) $(INPUT) $(CFLAGS) $(OBJFILE)
+all: $(HFILES) $(PARSEFILE)
+	$(CC) $(CFLAGS) $(OBJFILE) $(HFILES) $(PARSEFILE)
+
+parse: $(OBJFILE) $(INPUTFILE)
+	./$(OBJFILE) -t $(INPUTFILE)
+
+clean:
+	rm $(OBJFILE)
+	rm *.meta
