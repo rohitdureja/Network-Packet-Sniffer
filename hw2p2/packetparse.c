@@ -285,8 +285,7 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
         packet_data.th_flags = tcp->th_flags;
         packet_data.ip_src = ip->ip_src;
         packet_data.ip_dst = ip->ip_dst;
-        packet_data.th_seq = tcp->th_seq;
-        packet_data.th_ack = tcp->th_ack;
+        packet_data.th_seq = ntohl(tcp->th_seq);
         duplicates = add_packet_to_connection_list(&list, packet_data);
         if(!tcp_csum && !duplicates && size_payload > 0) {
 			print_payload_content(&list, packet_data, payload);

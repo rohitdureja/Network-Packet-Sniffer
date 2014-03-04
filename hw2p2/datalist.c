@@ -12,16 +12,15 @@ int unique_id = 1;
 
 int add_packet_to_connection_list(struct connection_list **list, struct packet_data data)
 {
-	//printf("here\n");
 	struct connection_list *current, *newnode;
 	int connection_exists;
 	int direction;
 	in_addr_t ipinitiator;
 	in_addr_t ipsrc;
 	in_addr_t ipdst;
+	int duplicate;
 	current = *list;
 	int i;
-	int duplicates = 0;
 	if(*list == NULL) /*first connection in the list */
 	{
 		newnode = (struct connection_list *)malloc(sizeof(struct connection_list));
@@ -38,27 +37,23 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode->packet_data.th_dport = data.th_dport;
 		newnode->packet_data.th_flags = data.th_flags;
 		newnode->packet_data.payload_size = data.payload_size;
-		newnode->packet_data.th_seq = data.th_seq;
-		newnode->packet_data.th_ack = data.th_ack;
 		newnode->num_packets_initiator_to_responder = 1;
 		newnode->num_packets_responder_to_initiator = 0;
 		newnode->num_bytes_initiator_to_responder = data.payload_size;
 		newnode->num_bytes_responder_to_initiator = 0;
+		newnode->sequence_initiator_to_responder = data.th_seq + data.payload_size;
+		newnode->sequence_responder_to_initiator = 0;
+		newnode->duplicate_initiator_to_responder = 0;
+		newnode->duplicate_responder_to_initiator = 0;
 		newnode->connection_id = 0;
 		newnode->ip_initiator = data.ip_src;
 		newnode->ip_responder = data.ip_dst;
 		newnode->connection_state = 0;
 		newnode->termination_status = 0;
 		newnode->syn_ack_status = 0;
-		newnode->last_seq_initiator = 0;
-		newnode->last_ack_initiator = 0;
-		newnode->last_seq_responder = 0;
-		newnode->last_ack_responder = 0;
-		newnode->duplicates_initiator = 0;
-		newnode->duplicates_responder = 0;
 		newnode-> next_connection = NULL;
 		*list = newnode;
-		//printf("Connection started. Init send (%d) and waiting for (%d)\n",newnode->last_seq_initiator,current->next_seq_initiator);
+		duplicate = 0;
 	}
 	else
 	{
@@ -97,53 +92,33 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			ipdst = inet_addr(inet_ntoa(data.ip_dst));
 
 			if(ipinitiator == ipsrc) {
+				/* check for duplicates */
+				if(data.th_seq < current->sequence_initiator_to_responder) {
+					current->duplicate_initiator_to_responder++;
+					duplicate = 1;
+				}
+				else {
+					current->sequence_initiator_to_responder = data.th_seq + data.payload_size;
+					duplicate = 0;
+				}
+				
 				current->num_bytes_initiator_to_responder += data.payload_size;
 				current->num_packets_initiator_to_responder += 1;
-
-				// check for duplicates
-				printf("Init send seq_num = %d, waiting for %d. Shoud be (%d)\n",data.th_seq,data.th_ack,current->last_ack_responder);
-				//if(current->connection_state == 1){
-					if (data.th_seq != current->last_ack_responder && current->last_seq_responder!=0) {
-						current->duplicates_initiator++;
-						duplicates = 2;
-						printf("Init send wrong seq\n");
-					}
-					else if(data.th_seq == current->last_seq_initiator && data.th_ack == current->last_ack_initiator){
-						current->duplicates_initiator++;
-						duplicates = 2;
-						printf("Init send dup\n");
-					}
-					else {
-						current->last_seq_initiator = data.th_seq;
-						//printf("Resp next seq_num = %d\n",current->next_seq_initiator);
-						current->last_ack_initiator = data.th_ack;
-					}				
-				//}
-
 			}
 
 			else if(ipinitiator == ipdst) {
+				/* check for duplicates */
+				if(data.th_seq < current->sequence_responder_to_initiator) {
+					current->duplicate_responder_to_initiator++;
+					duplicate = 1;
+				}
+				else {
+					current->sequence_responder_to_initiator = data.th_seq + data.payload_size;
+					duplicate = 0;
+				}
+
 				current->num_bytes_responder_to_initiator += data.payload_size;
 				current->num_packets_responder_to_initiator += 1;
-
-				printf("Resp send seq_num = %d, waiting for %d. Should be (%d)\n",data.th_seq,data.th_ack,current->last_ack_initiator);
-				//if(current->connection_state == 1){
-					if (data.th_seq != current->last_ack_initiator && current->last_seq_initiator!=0) {
-						current->duplicates_responder++;
-						duplicates = 2;
-						printf("Resp send wrong seq\n");
-					}
-					else if(data.th_seq == current->last_seq_responder && data.th_ack == current->last_ack_responder){
-						current->duplicates_responder++;
-						duplicates = 2;
-						printf("Resp send dup\n");
-					}
-					else {
-						current->last_seq_responder = data.th_seq;
-						//printf("Init next seq_num = %d\n",current->next_seq_responder);
-						current->last_ack_responder = data.th_ack;
-					}				
-				//}
 			}
 		}
 		else {
@@ -159,8 +134,6 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode->packet_data.ip_dst = data.ip_dst;
 			newnode->packet_data.th_sport = data.th_sport;
 			newnode->packet_data.th_dport = data.th_dport;
-			newnode->packet_data.th_seq = data.th_seq;
-			newnode->packet_data.th_ack = data.th_ack;
 			newnode->port_initiator = data.th_sport;
 			newnode->port_responder = data.th_dport;
 			newnode->packet_data.th_flags = data.th_flags;
@@ -168,24 +141,22 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode->num_packets_responder_to_initiator = 0;
 			newnode->packet_data.payload_size = data.payload_size;
 			newnode->num_bytes_initiator_to_responder = data.payload_size;
+			newnode->sequence_initiator_to_responder = data.th_seq + data.payload_size;
+			newnode->sequence_responder_to_initiator = 0;
 			newnode->num_bytes_responder_to_initiator = 0;
+			newnode->duplicate_initiator_to_responder = 0;
+			newnode->duplicate_responder_to_initiator = 0;
 			newnode->connection_id = 0;
 			newnode->ip_initiator = data.ip_src;
 			newnode->ip_responder = data.ip_dst;
 			newnode->connection_state = 0;
 			newnode->termination_status = 0;
-			newnode->last_seq_initiator = 0;
-			newnode->last_ack_initiator = 0;
-			newnode->last_seq_responder = 0;
-			newnode->last_ack_responder = 0;
-			newnode->duplicates_initiator = 0;
-			newnode->duplicates_responder = 0;
 			newnode -> next_connection = NULL;
 			current -> next_connection = newnode;
-			//printf("Connection started. Init send (%d) and waiting for (%d)\n",newnode->last_seq_initiator,current->next_seq_initiator);
+			duplicate = 0;
 		}
 	}
-	return duplicates;
+	return duplicate;
 }
 
 int search_active_connection(struct connection_list ***list, struct packet_data data)
@@ -254,16 +225,17 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 		for(i = 0 ; i < connection_exists ; i++) {
 			current = current -> next_connection;
 		}
-		if (current->connection_state != 1 || !(data.th_flags & TH_ACK)){
-			return;
-		}
+		/*if (current->connection_state != 1 || !(data.th_flags & TH_ACK)){
+			return;*/
+	
 		in_addr_t ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
 		in_addr_t ipsrc = inet_addr(inet_ntoa(data.ip_src));
+		in_addr_t ipdst = inet_addr(inet_ntoa(data.ip_dst));
 		char filename[50];
-		if(ipinitiator == ipsrc && current->port_initiator==data.th_sport){
+		if(ipinitiator == ipsrc){
 		    sprintf(filename, "%d.initiator", current->connection_id);
 		}
-		else{
+		else if(ipinitiator == ipdst){
 		    sprintf(filename, "%d.responder", current->connection_id);
 		}
 		write_to_file(filename, payload);
@@ -290,7 +262,7 @@ void print_connection_list(struct connection_list **list)
 					ntohs(current->port_initiator), ntohs(current->port_responder),
 					current->num_packets_initiator_to_responder, current->num_packets_responder_to_initiator,
 					current->num_bytes_initiator_to_responder, current->num_bytes_responder_to_initiator,
-					current->duplicates_initiator, current->duplicates_responder, current->termination_status);
+					current->duplicate_initiator_to_responder, current->duplicate_responder_to_initiator, current->termination_status);
 				fclose(fp);
 				printf("Connection number : %d\n", connection_number);
 				printf("%s ", inet_ntoa(current->ip_initiator));
@@ -301,10 +273,9 @@ void print_connection_list(struct connection_list **list)
 				printf("%ld \n", current->num_packets_responder_to_initiator);
 				printf("%ld ", current->num_bytes_initiator_to_responder);
 				printf("%ld \n", current->num_bytes_responder_to_initiator);
-				printf("%d ", current->duplicates_initiator);
-				printf("%d\n", current->duplicates_responder);
+				printf("%d ", current->duplicate_initiator_to_responder);
+				printf("%d\n", current->duplicate_responder_to_initiator);
 				printf("%d \n", current->termination_status);
-				
 				connection_number ++;
 			}
 			current = current -> next_connection;

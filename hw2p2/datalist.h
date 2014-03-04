@@ -9,6 +9,7 @@
 #include <string.h>
 
 typedef u_int tcp_seq;
+
 /* Data structure to hold packet information */
 struct packet_data {
 	struct in_addr ip_src;
@@ -18,7 +19,6 @@ struct packet_data {
 	u_char th_flags;
 	unsigned int payload_size;
 	tcp_seq th_seq;
-	tcp_seq th_ack;
 };
 
 /* list structure to hold connection information */
@@ -32,19 +32,15 @@ struct connection_list {
 	unsigned long num_packets_responder_to_initiator;
 	unsigned long num_bytes_initiator_to_responder;
 	unsigned long num_bytes_responder_to_initiator;
-
-	// seq and ack numbers of last recorded packet of initiator and responder
-	tcp_seq last_seq_initiator;
-	tcp_seq last_seq_responder;
-	tcp_seq last_ack_initiator;
-	tcp_seq last_ack_responder;
+	unsigned int duplicate_initiator_to_responder;
+	unsigned int duplicate_responder_to_initiator;
 	unsigned int termination_status;
 	unsigned int connection_state;
 	unsigned int syn_ack_status;
 	struct packet_data packet_data;
 	struct connection_list *next_connection;
-	unsigned int duplicates_initiator;
-	unsigned int duplicates_responder;
+	tcp_seq sequence_initiator_to_responder;
+	tcp_seq sequence_responder_to_initiator;
 
 };
 
@@ -57,6 +53,7 @@ int search_active_connection(struct connection_list ***list, struct packet_data 
 /* print the list */
 void print_connection_list(struct connection_list **list);
 
+/* prints payload */
 void print_payload_content(struct connection_list **list, struct packet_data data, const u_char* payload);
 
 #endif
