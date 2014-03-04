@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -lpcap -o
+CFLAGS = -ggdb -lpcap -o
 HFILES = datalist.c
 PARSEFILE = packetparse.c
 OBJFILE = packetparse

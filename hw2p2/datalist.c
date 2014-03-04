@@ -8,6 +8,8 @@
 #define TH_ECE  0x40
 #define TH_CWR  0x80
 
+int unique_id = 1;
+
 int add_packet_to_connection_list(struct connection_list **list, struct packet_data data)
 {
 	//printf("here\n");
@@ -45,7 +47,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode->connection_state = 0;
 		newnode->termination_status = 0;
 		newnode->syn_ack_status = 0;
-		newnode -> next_connection = NULL;
+		newnode-> next_connection = NULL;
 		*list = newnode;
 	}
 	else
@@ -69,6 +71,9 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 				{
 					current->connection_state = 1;
 					current->syn_ack_status = 0;
+					
+					current->connection_id = unique_id;
+					unique_id ++;
 				}
 			}
 			if(data.th_flags & TH_FIN)
@@ -161,6 +166,40 @@ int search_active_connection(struct connection_list ***list, struct packet_data 
 	return (int)-1;
 }
 
+void write_to_file(const char * file_name, const char * payload){
+    //printf("Write file %s\n",file_name);
+	FILE *fp2;
+	fp2 = fopen(file_name, "a+");
+	fprintf(fp2,"%s",payload);
+	fclose(fp2);
+}
+
+void print_payload_content(struct connection_list **list, struct packet_data data, const char* payload){
+	struct connection_list * current = *list;
+	int connection_exists = search_active_connection(&list, data);
+	
+	if(connection_exists!=-1) {
+		/* connection already exists */
+		int i;
+		for(i = 0 ; i < connection_exists ; i++) {
+			current = current -> next_connection;
+		}
+		if (current->connection_state != 1){
+			return;
+		}
+		in_addr_t ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
+		in_addr_t ipsrc = inet_addr(inet_ntoa(data.ip_src));
+		char filename[50];
+		if(ipinitiator == ipsrc || current->port_initiator==data.th_sport){
+		    sprintf(filename, "%d.initiator", current->connection_id);
+		}
+		else{
+		    sprintf(filename, "%d.responder", current->connection_id);
+		}
+		write_to_file(filename,payload);
+	}
+}
+
 void print_connection_list(struct connection_list **list)
 {
 	int connection_number = 1;
@@ -193,8 +232,12 @@ void print_connection_list(struct connection_list **list)
 				printf("%ld ", current->num_bytes_initiator_to_responder);
 				printf("%ld \n", current->num_bytes_responder_to_initiator);
 				printf("%d \n", current->termination_status);
+				
+				connection_number ++;
 			}
 			current = current -> next_connection;
+			
 		}
 	}
 }
+

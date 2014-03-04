@@ -276,6 +276,7 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
         size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
         size_csum = ntohs(ip->ip_len) - size_ip;
         tcp_csum = tcp_checksum(tcp, size_csum, inet_addr(inet_ntoa(ip->ip_src)),inet_addr(inet_ntoa(ip->ip_dst)));
+		payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
         if(!tcp_csum) {
             packet_data.th_sport = tcp->th_sport;
             packet_data.th_dport = tcp->th_dport;
@@ -285,31 +286,10 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
             packet_data.ip_src = ip->ip_src;
             packet_data.ip_dst = ip->ip_dst;
 
-
             add_packet_to_connection_list(&list, packet_data);
+			print_payload_content(&list, packet_data,payload);
         }
-        else {}
-            //printf("Y");
-
     }
-
-    // UDP info
-    else if (tcpUdp == 2) {
-        udp = (struct sniff_udp*)(packet + SIZE_ETHERNET + size_ip);
-        // UDP Header is 8 bytes
-        size_payload = ntohs(ip->ip_len) - (size_ip + 8);
-        //printf("%d ", size_payload);
-        //printf("%d ", ntohs(udp->uh_sport));
-        //printf("%d ", ntohs(udp->uh_dport));
-    }
-
-    // Other info
-    else{
-        size_payload = ntohs(ip->ip_len) - size_ip;
-        //printf("%d ", size_payload);
-    }
-
-    //printf("\n");
 }
 
 int main(int argc, char *argv[])
@@ -347,7 +327,6 @@ int main(int argc, char *argv[])
                 pcap_loop(handle,0,packet_handler_hw2p2,NULL);
                 print_connection_list(&list);
                 /* write files here */
-
             }
         }
     }
