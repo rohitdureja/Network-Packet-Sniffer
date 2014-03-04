@@ -103,7 +103,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 				// check for duplicates
 				printf("Init send seq_num = %d, waiting for %d. Shoud be (%d)\n",data.th_seq,data.th_ack,current->next_seq_responder);
 				//if(current->connection_state == 1){
-					if ((data.th_seq < current->next_seq_responder && current->next_seq_responder!=0) || (data.th_seq == current->last_seq_initiator)) {
+					if ((data.th_seq < current->next_seq_responder && current->next_seq_responder!=0) || (data.th_seq == current->last_seq_initiator) {
 						current->duplicates_initiator++;
 						duplicates = 2;
 						printf("Init send dup\n");
@@ -123,7 +123,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 
 				printf("Resp send seq_num = %d, waiting for %d. Should be (%d)\n",data.th_seq,data.th_ack,current->next_seq_initiator);
 				//if(current->connection_state == 1){
-					if ((data.th_seq < current->next_seq_initiator && current->next_seq_initiator!=0) || (data.th_seq == current->last_seq_responder)) {
+					if ((data.th_seq < current->next_seq_initiator && current->next_seq_initiator!=0) || (data.th_seq == current->last_seq_responder) {
 						current->duplicates_responder++;
 						duplicates = 2;
 						printf("Resp send dup\n");

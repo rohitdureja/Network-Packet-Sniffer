@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -ggdb -lpcap -o
-HFILES = datalist.c payload_list.c
+HFILES = datalist.c
 PARSEFILE = packetparse.c
 OBJFILE = packetparse
 INPUTFILE = smtp.pcap
