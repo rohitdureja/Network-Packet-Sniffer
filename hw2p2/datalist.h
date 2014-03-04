@@ -34,10 +34,10 @@ struct connection_list {
 	unsigned long num_bytes_responder_to_initiator;
 
 	// seq and ack numbers of last recorded packet of initiator and responder
-	tcp_seq next_seq_initiator;
-	tcp_seq next_seq_responder;
 	tcp_seq last_seq_initiator;
 	tcp_seq last_seq_responder;
+	tcp_seq last_ack_initiator;
+	tcp_seq last_ack_responder;
 	unsigned int termination_status;
 	unsigned int connection_state;
 	unsigned int syn_ack_status;

@@ -50,10 +50,10 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode->connection_state = 0;
 		newnode->termination_status = 0;
 		newnode->syn_ack_status = 0;
-		newnode->next_seq_initiator = 0;
 		newnode->last_seq_initiator = 0;
-		newnode->next_seq_responder = 0;
+		newnode->last_ack_initiator = 0;
 		newnode->last_seq_responder = 0;
+		newnode->last_ack_responder = 0;
 		newnode->duplicates_initiator = 0;
 		newnode->duplicates_responder = 0;
 		newnode-> next_connection = NULL;
@@ -101,17 +101,22 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 				current->num_packets_initiator_to_responder += 1;
 
 				// check for duplicates
-				printf("Init send seq_num = %d, waiting for %d. Shoud be (%d)\n",data.th_seq,data.th_ack,current->next_seq_responder);
+				printf("Init send seq_num = %d, waiting for %d. Shoud be (%d)\n",data.th_seq,data.th_ack,current->last_ack_responder);
 				//if(current->connection_state == 1){
-					if ((data.th_seq < current->next_seq_responder && current->next_seq_responder!=0) || (data.th_seq == current->last_seq_initiator)) {
+					if (data.th_seq != current->last_ack_responder && current->last_seq_responder!=0) {
+						current->duplicates_initiator++;
+						duplicates = 2;
+						printf("Init send wrong seq\n");
+					}
+					else if(data.th_seq == current->last_seq_initiator && data.th_ack == current->last_ack_initiator){
 						current->duplicates_initiator++;
 						duplicates = 2;
 						printf("Init send dup\n");
 					}
 					else {
-						current->next_seq_initiator = data.th_ack;
-						//printf("Resp next seq_num = %d\n",current->next_seq_initiator);
 						current->last_seq_initiator = data.th_seq;
+						//printf("Resp next seq_num = %d\n",current->next_seq_initiator);
+						current->last_ack_initiator = data.th_ack;
 					}				
 				//}
 
@@ -121,17 +126,22 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 				current->num_bytes_responder_to_initiator += data.payload_size;
 				current->num_packets_responder_to_initiator += 1;
 
-				printf("Resp send seq_num = %d, waiting for %d. Should be (%d)\n",data.th_seq,data.th_ack,current->next_seq_initiator);
+				printf("Resp send seq_num = %d, waiting for %d. Should be (%d)\n",data.th_seq,data.th_ack,current->last_ack_initiator);
 				//if(current->connection_state == 1){
-					if ((data.th_seq < current->next_seq_initiator && current->next_seq_initiator!=0) || (data.th_seq == current->last_seq_responder)) {
+					if (data.th_seq != current->last_ack_initiator && current->last_seq_initiator!=0) {
+						current->duplicates_responder++;
+						duplicates = 2;
+						printf("Resp send wrong seq\n");
+					}
+					else if(data.th_seq == current->last_seq_responder && data.th_ack == current->last_ack_responder){
 						current->duplicates_responder++;
 						duplicates = 2;
 						printf("Resp send dup\n");
 					}
 					else {
-						current->next_seq_responder = data.th_ack;
-						//printf("Init next seq_num = %d\n",current->next_seq_responder);
 						current->last_seq_responder = data.th_seq;
+						//printf("Init next seq_num = %d\n",current->next_seq_responder);
+						current->last_ack_responder = data.th_ack;
 					}				
 				//}
 			}
@@ -164,10 +174,10 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode->ip_responder = data.ip_dst;
 			newnode->connection_state = 0;
 			newnode->termination_status = 0;
-			newnode->next_seq_initiator = 0;
 			newnode->last_seq_initiator = 0;
-			newnode->next_seq_responder = 0;
+			newnode->last_ack_initiator = 0;
 			newnode->last_seq_responder = 0;
+			newnode->last_ack_responder = 0;
 			newnode->duplicates_initiator = 0;
 			newnode->duplicates_responder = 0;
 			newnode -> next_connection = NULL;
