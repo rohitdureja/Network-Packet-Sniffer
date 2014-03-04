@@ -21,6 +21,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 	in_addr_t ipdst;
 	current = *list;
 	int i;
+	int duplicates = 0;
 	if(*list == NULL) /*first connection in the list */
 	{
 		newnode = (struct connection_list *)malloc(sizeof(struct connection_list));
@@ -37,6 +38,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode->packet_data.th_dport = data.th_dport;
 		newnode->packet_data.th_flags = data.th_flags;
 		newnode->packet_data.payload_size = data.payload_size;
+		newnode->packet_data.th_seq = data.th_seq;
+		newnode->packet_data.th_ack = data.th_ack;
 		newnode->num_packets_initiator_to_responder = 1;
 		newnode->num_packets_responder_to_initiator = 0;
 		newnode->num_bytes_initiator_to_responder = data.payload_size;
@@ -47,6 +50,12 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode->connection_state = 0;
 		newnode->termination_status = 0;
 		newnode->syn_ack_status = 0;
+		newnode->seq_initiator = data.th_seq;
+		newnode->ack_initiator = data.th_ack;
+		newnode->seq_responder = 0;
+		newnode->ack_responder = 0;
+		newnode->duplicates_initiator = 0;
+		newnode->duplicates_responder = 0;
 		newnode-> next_connection = NULL;
 		*list = newnode;
 	}
@@ -76,22 +85,45 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 					unique_id ++;
 				}
 			}
-			if(data.th_flags & TH_FIN)
+			if(data.th_flags & TH_FIN || data.th_flags & TH_RST)
 			{
 				current->termination_status = 1;
 			}
 
+
 			ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
-	   		ipsrc = inet_addr(inet_ntoa(data.ip_src));
-	   		ipdst = inet_addr(inet_ntoa(data.ip_dst));
+	   	ipsrc = inet_addr(inet_ntoa(data.ip_src));
+	   	ipdst = inet_addr(inet_ntoa(data.ip_dst));
 
 			if(ipinitiator == ipsrc) {
 				current->num_bytes_initiator_to_responder += data.payload_size;
 				current->num_packets_initiator_to_responder += 1;
+
+				// check for duplicates
+				if (data.th_seq == current->seq_initiator && 
+					data.th_ack == current->ack_initiator) {
+					current->duplicates_initiator++;
+					duplicates = 2;
+				}
+				else {
+					current->seq_initiator = data.th_seq;
+					current->ack_initiator = data.th_ack;
+				}
 			}
+
 			else if(ipinitiator == ipdst) {
 				current->num_bytes_responder_to_initiator += data.payload_size;
 				current->num_packets_responder_to_initiator += 1;
+
+				if (data.th_seq == current->seq_responder &&
+					data.th_ack == current->ack_responder) {
+					current->duplicates_responder++;
+					duplicates = 2;
+				}
+				else {
+					current->seq_responder = data.th_seq;
+					current->ack_responder = data.th_ack;
+				}
 			}
 		}
 		else {
@@ -107,6 +139,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode->packet_data.ip_dst = data.ip_dst;
 			newnode->packet_data.th_sport = data.th_sport;
 			newnode->packet_data.th_dport = data.th_dport;
+			newnode->packet_data.th_seq = data.th_seq;
+			newnode->packet_data.th_ack = data.th_ack;
 			newnode->port_initiator = data.th_sport;
 			newnode->port_responder = data.th_dport;
 			newnode->packet_data.th_flags = data.th_flags;
@@ -120,11 +154,17 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode->ip_responder = data.ip_dst;
 			newnode->connection_state = 0;
 			newnode->termination_status = 0;
+			newnode->seq_initiator = data.th_seq;
+			newnode->ack_initiator = data.th_ack;
+			newnode->seq_responder = 0;
+			newnode->ack_responder = 0;
+			newnode->duplicates_initiator = 0;
+			newnode->duplicates_responder = 0;
 			newnode -> next_connection = NULL;
 			current -> next_connection = newnode;
 		}
 	}
-	return 0;
+	return duplicates;
 }
 
 int search_active_connection(struct connection_list ***list, struct packet_data data)
@@ -166,15 +206,29 @@ int search_active_connection(struct connection_list ***list, struct packet_data 
 	return (int)-1;
 }
 
-void write_to_file(const char * file_name, const char * payload){
-    //printf("Write file %s\n",file_name);
+
+
+/*
+ * print packet payload data (avoid printing binary data)
+ */
+void
+write_to_file(const char* file_name, const u_char *payload)
+{
 	FILE *fp2;
 	fp2 = fopen(file_name, "a+");
-	fprintf(fp2,"%s",payload);
+	fprintf(fp2, "%s", payload);
 	fclose(fp2);
+	return;
 }
 
-void print_payload_content(struct connection_list **list, struct packet_data data, const char* payload){
+
+
+
+
+
+
+void print_payload_content(struct connection_list **list, struct packet_data data, 
+	const u_char* payload) {
 	struct connection_list * current = *list;
 	int connection_exists = search_active_connection(&list, data);
 	
@@ -190,13 +244,13 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 		in_addr_t ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
 		in_addr_t ipsrc = inet_addr(inet_ntoa(data.ip_src));
 		char filename[50];
-		if(ipinitiator == ipsrc || current->port_initiator==data.th_sport){
+		if(ipinitiator == ipsrc && current->port_initiator==data.th_sport){
 		    sprintf(filename, "%d.initiator", current->connection_id);
 		}
 		else{
 		    sprintf(filename, "%d.responder", current->connection_id);
 		}
-		write_to_file(filename,payload);
+		write_to_file(filename, payload);
 	}
 }
 
@@ -216,11 +270,11 @@ void print_connection_list(struct connection_list **list)
 			{
 				sprintf(filename, "%d.meta", connection_number);
 				fp = fopen(filename, "w+");
-				fprintf(fp, "%s %s \n%d %d \n%ld %ld \n%ld %ld \n%d \n", inet_ntoa(current->ip_initiator), inet_ntoa(current->ip_responder),
+				fprintf(fp, "%s %s \n%d %d \n%ld %ld \n%ld %ld \n%d %d\n%d \n", inet_ntoa(current->ip_initiator), inet_ntoa(current->ip_responder),
 					ntohs(current->port_initiator), ntohs(current->port_responder),
 					current->num_packets_initiator_to_responder, current->num_packets_responder_to_initiator,
 					current->num_bytes_initiator_to_responder, current->num_bytes_responder_to_initiator,
-					current->termination_status);
+					current->duplicates_initiator, current->duplicates_responder, current->termination_status);
 				fclose(fp);
 				printf("Connection number : %d\n", connection_number);
 				printf("%s ", inet_ntoa(current->ip_initiator));
@@ -231,6 +285,8 @@ void print_connection_list(struct connection_list **list)
 				printf("%ld \n", current->num_packets_responder_to_initiator);
 				printf("%ld ", current->num_bytes_initiator_to_responder);
 				printf("%ld \n", current->num_bytes_responder_to_initiator);
+				printf("%d ", current->duplicates_initiator);
+				printf("%d\n", current->duplicates_responder);
 				printf("%d \n", current->termination_status);
 				
 				connection_number ++;

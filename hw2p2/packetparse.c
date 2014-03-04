@@ -39,8 +39,6 @@ struct sniff_ip {
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip)                (((ip)->ip_vhl) >> 4)
 
-/* TCP header */
-typedef u_int tcp_seq;
 
 struct sniff_tcp {
 	u_short th_sport;               /* source port */
@@ -128,7 +126,7 @@ void packet_handler_hw2p1(u_char* user, const struct pcap_pkthdr *pkt_header, co
 	const struct sniff_ip *ip;
 	const struct sniff_tcp *tcp;
     const struct sniff_udp *udp;
-	const char *payload;
+	const u_char *payload;
 
 	int size_ip;
 	int size_tcp;
@@ -243,6 +241,9 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
     // ethernet header
     ethernet = (struct sniff_ethernet*)(packet);
     
+    // whether or not the packet added is a dup
+    int duplicates;
+
     // not an IP packet
     if (ethernet->ether_type != 8) {
         return;
@@ -277,17 +278,18 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
         size_csum = ntohs(ip->ip_len) - size_ip;
         tcp_csum = tcp_checksum(tcp, size_csum, inet_addr(inet_ntoa(ip->ip_src)),inet_addr(inet_ntoa(ip->ip_dst)));
 		payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
-        if(!tcp_csum) {
-            packet_data.th_sport = tcp->th_sport;
-            packet_data.th_dport = tcp->th_dport;
-            packet_data.th_flags = tcp->th_flags;
-            packet_data.payload_size = size_payload;
-            packet_data.th_flags = tcp->th_flags;
-            packet_data.ip_src = ip->ip_src;
-            packet_data.ip_dst = ip->ip_dst;
-
-            add_packet_to_connection_list(&list, packet_data);
-			print_payload_content(&list, packet_data,payload);
+        packet_data.th_sport = tcp->th_sport;
+        packet_data.th_dport = tcp->th_dport;
+        packet_data.th_flags = tcp->th_flags;
+        packet_data.payload_size = size_payload;
+        packet_data.th_flags = tcp->th_flags;
+        packet_data.ip_src = ip->ip_src;
+        packet_data.ip_dst = ip->ip_dst;
+        packet_data.th_seq = tcp->th_seq;
+        packet_data.th_ack = tcp->th_ack;
+        duplicates = add_packet_to_connection_list(&list, packet_data);
+        if(!tcp_csum && !duplicates && size_payload > 0) {
+			print_payload_content(&list, packet_data, payload);
         }
     }
 }
