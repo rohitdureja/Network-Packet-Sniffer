@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -ggdb -lpcap -o
-HFILES = datalist.c
+HFILES = datalist.c payload_list.c
 PARSEFILE = packetparse.c
 OBJFILE = packetparse
 INPUTFILE = smtp.pcap
@@ -14,3 +14,5 @@ parse: $(OBJFILE) $(INPUTFILE)
 clean:
 	rm $(OBJFILE)
 	rm *.meta
+	rm *.initiator
+	rm *.responder
