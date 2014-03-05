@@ -18,6 +18,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 	in_addr_t ipinitiator;
 	in_addr_t ipsrc;
 	in_addr_t ipdst;
+
+	// duplicate is 1 if the packet_data is a duplicate packet
 	int duplicate;
 	current = *list;
 	int i;
@@ -55,14 +57,19 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		*list = newnode;
 		duplicate = 0;
 	}
+
 	else
 	{
 		connection_exists = search_active_connection(&list, data);
 		if(connection_exists!=-1) {
 			/* connection already exists */
+
+			// find connection node
 			for(i = 0 ; i < connection_exists ; i++) {
 				current = current -> next_connection;
 			}
+
+			// connection terminated
 			if(current->connection_state == 0)
 			{
 				if((data.th_flags & TH_SYN) && (data.th_flags & TH_ACK))
@@ -70,6 +77,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 					current->syn_ack_status = 1;
 				}
 			}
+
+			// in process of 3-way handshake
 			if(current->syn_ack_status == 1)
 			{
 				if((data.th_flags & TH_ACK) && !(data.th_flags & TH_SYN))
@@ -81,9 +90,12 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 					unique_id ++;
 				}
 			}
+
+			// connection terminated
 			if(data.th_flags & TH_FIN || data.th_flags & TH_RST)
 			{
 				current->termination_status = 1;
+				current->connection_state = 0;
 			}
 
 
@@ -121,9 +133,12 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 				current->num_packets_responder_to_initiator += 1;
 			}
 		}
+
+		// new connection
 		else {
-			while(current -> next_connection != NULL)
+			while(current -> next_connection != NULL) {
 				current = current -> next_connection;
+			}
 			newnode = (struct connection_list *)malloc(sizeof(struct connection_list));
 			if(newnode == NULL) {
 				printf("Can't create new node!");
@@ -171,31 +186,32 @@ int search_active_connection(struct connection_list ***list, struct packet_data 
 	in_addr_t ipdst;
 	while(current != NULL)
 	{
-	    ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
-	    ipresponder = inet_addr(inet_ntoa(current->ip_responder));
-	    ipsrc = inet_addr(inet_ntoa(current->packet_data.ip_src));
-	    ipdst = inet_addr(inet_ntoa(current->packet_data.ip_dst));
+		ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
+    ipresponder = inet_addr(inet_ntoa(current->ip_responder));
+    ipsrc = inet_addr(inet_ntoa(current->packet_data.ip_src));
+    ipdst = inet_addr(inet_ntoa(current->packet_data.ip_dst));
 
-	    if(ipinitiator == ipsrc || ipinitiator == ipdst)
-	    {
-	    	if(ipresponder == ipsrc || ipresponder == ipdst)
-	    	{
-	    		if((current->port_initiator==data.th_sport) | (current->port_initiator==data.th_dport))
+   	if(ipinitiator == ipsrc || ipinitiator == ipdst)
+	  {
+    	if(ipresponder == ipsrc || ipresponder == ipdst)
+    	{
+    		if((current->port_initiator==data.th_sport) | (current->port_initiator==data.th_dport))
 				{
-					if((current->port_responder==data.th_sport) | (current->port_responder==data.th_dport))
+					if((current->port_responder==data.th_sport) | (current->port_responder==data.th_dport)) {
 						flag = 1;
+					}
 				}
 			}
 		}
-		if(flag==1){
+
+		if(flag==1) {
 			return pos;
 		}
-		else {
-		}
+
 		current = current -> next_connection;
 		pos = pos + 1;
 	}
-	return (int)-1;
+	return (int) -1;
 }
 
 
@@ -209,13 +225,16 @@ write_to_file( char* file_name, const char *payload, int size_payload)
 	FILE *fp2;
 	int i;
 	fp2 = fopen(file_name, "a+");
+	// avoid buffer overflows
 	for(i = 0 ; i < size_payload ; i++)
 		fprintf(fp2, "%c", payload[i]);
 	fclose(fp2);
 	return;
 }
 
-
+/*
+* figure out which host packet data belongs to and print to respective file
+*/
 void print_payload_content(struct connection_list **list, struct packet_data data, 
 	 const char* payload, int size_payload) {
 	struct connection_list * current = *list;
@@ -230,8 +249,6 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 		if(current->connection_id <= 0){
 		    return; //The connection has not started.
 		}
-		/*if (current->connection_state != 1 || !(data.th_flags & TH_ACK)){
-			return;*/
 		in_addr_t ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
 		in_addr_t ipsrc = inet_addr(inet_ntoa(data.ip_src));
 		in_addr_t ipdst = inet_addr(inet_ntoa(data.ip_dst));
@@ -246,9 +263,11 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 	}
 }
 
+/*
+* prints metadata files for each connection
+*/
 void print_connection_list(struct connection_list **list)
 {
-	int connection_number = 1;
 	char filename[50];
 	FILE *fp;
 	if(*list == NULL) {
@@ -258,9 +277,9 @@ void print_connection_list(struct connection_list **list)
 		struct connection_list *current;
 		current = *list;
 		while(current != NULL) {
-			if(current -> connection_state == 1)
+			if(current -> connection_id != 0)
 			{
-				sprintf(filename, "%d.meta", connection_number);
+				sprintf(filename, "%d.meta", current->connection_id);
 				fp = fopen(filename, "w+");
 				fprintf(fp,"%s ",inet_ntoa(current->ip_initiator));
 				fprintf(fp, "%s \n%d %d \n%ld %ld \n%ld %ld \n%d %d\n%d \n",inet_ntoa(current->ip_responder),
@@ -269,7 +288,7 @@ void print_connection_list(struct connection_list **list)
 					current->num_bytes_initiator_to_responder, current->num_bytes_responder_to_initiator,
 					current->duplicate_initiator_to_responder, current->duplicate_responder_to_initiator, current->termination_status);
 				fclose(fp);
-				printf("Connection number : %d\n", connection_number);
+				printf("Connection number : %d\n", current->connection_id);
 				printf("%s ", inet_ntoa(current->ip_initiator));
 				printf("%s \n",inet_ntoa(current->ip_responder));
 				printf("%d ", ntohs(current->port_initiator));
@@ -281,7 +300,6 @@ void print_connection_list(struct connection_list **list)
 				printf("%d ", current->duplicate_initiator_to_responder);
 				printf("%d\n", current->duplicate_responder_to_initiator);
 				printf("%d \n", current->termination_status);
-				connection_number ++;
 			}
 			current = current -> next_connection;
 			

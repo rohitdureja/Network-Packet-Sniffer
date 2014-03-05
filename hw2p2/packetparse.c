@@ -287,6 +287,8 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
         packet_data.ip_dst = ip->ip_dst;
         packet_data.th_seq = ntohl(tcp->th_seq);
         duplicates = add_packet_to_connection_list(&list, packet_data);
+
+        // will only write data to file if it is not a duplicate packet
         if(!tcp_csum && !duplicates && size_payload > 0) {
 			print_payload_content(&list, packet_data, payload, size_payload);
         }
