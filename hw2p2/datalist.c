@@ -259,7 +259,8 @@ void print_connection_list(struct connection_list **list)
 			{
 				sprintf(filename, "%d.meta", connection_number);
 				fp = fopen(filename, "w+");
-				fprintf(fp, "%s %s \n%d %d \n%ld %ld \n%ld %ld \n%d %d\n%d \n", inet_ntoa(current->ip_initiator), inet_ntoa(current->ip_responder),
+				fprintf(fp,"%s ",inet_ntoa(current->ip_initiator));
+				fprintf(fp, "%s \n%d %d \n%ld %ld \n%ld %ld \n%d %d\n%d \n",inet_ntoa(current->ip_responder),
 					ntohs(current->port_initiator), ntohs(current->port_responder),
 					current->num_packets_initiator_to_responder, current->num_packets_responder_to_initiator,
 					current->num_bytes_initiator_to_responder, current->num_bytes_responder_to_initiator,
@@ -267,7 +268,7 @@ void print_connection_list(struct connection_list **list)
 				fclose(fp);
 				printf("Connection number : %d\n", connection_number);
 				printf("%s ", inet_ntoa(current->ip_initiator));
-				printf("%s \n", inet_ntoa(current->ip_responder));
+				printf("%s \n",inet_ntoa(current->ip_responder));
 				printf("%d ", ntohs(current->port_initiator));
 				printf("%d \n", ntohs(current->port_responder));
 				printf("%ld ", current->num_packets_initiator_to_responder);
