@@ -227,6 +227,9 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 		for(i = 0 ; i < connection_exists ; i++) {
 			current = current -> next_connection;
 		}
+		if(current->connection_id <= 0){
+		    return; //The connection has not started.
+		}
 		/*if (current->connection_state != 1 || !(data.th_flags & TH_ACK)){
 			return;*/
 		in_addr_t ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
