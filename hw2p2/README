@@ -9,7 +9,7 @@ Group Members:	Ashutosh Goel
 
 Repository Contents
 
-The repository consists of three files which are
+The repository consists of four files which are
 
 1. Makefile : automates the process of compiling and generating output
 2. packetparse.c : source file which reads packet data dump and parses itd
@@ -38,6 +38,12 @@ The pcap library is used to gather packet data. Instead of sniffing a live netwo
 
 The handler we used this time is based on the one we used in the previous part, which catches the TCP packet and ignore the rest. 
 Once a TCP packet arrives, it checks the connection status, analyzes the packet and filters out duplicate. Then, all output files are generated.
+
+The TCP packets are sent to the add_to_connection_list() method which operates on a linked list data structure and has fields corresponding to the data inside a packet. The direction of the packet is determined by a quick comparison of the ip on the initiator (which is determined from the ip_src of the first packet in the connection) with the ip_src and ip_dst of packets.
+
+The data structure offers a method to check for already active connections. It compares the ip_src, ip_dst, sport and dport of the incoming packet with the contents of the already active connection. If they match, the packets data is appended to the existing connection, otherwise a new connection is added to the list.
+
+To check for duplicates, the sequence number of the packets from both the initiator and the responder are tracked and updated in the connection list. If a packet comes with a sequence number which is less than the sequence number in the connection list, the packets is tagged duplicate the its payload data is not written to the files.
 
 ---
 
