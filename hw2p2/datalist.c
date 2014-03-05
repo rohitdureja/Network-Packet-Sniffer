@@ -204,18 +204,20 @@ int search_active_connection(struct connection_list ***list, struct packet_data 
  * print packet payload data (avoid printing binary data)
  */
 void
-write_to_file(const char* file_name, const u_char *payload)
+write_to_file( char* file_name, const char *payload, int size_payload)
 {
 	FILE *fp2;
+	int i;
 	fp2 = fopen(file_name, "a+");
-	fprintf(fp2, "%s", payload);
+	for(i = 0 ; i < size_payload ; i++)
+		fprintf(fp2, "%c", payload[i]);
 	fclose(fp2);
 	return;
 }
 
 
 void print_payload_content(struct connection_list **list, struct packet_data data, 
-	const u_char* payload) {
+	 const char* payload, int size_payload) {
 	struct connection_list * current = *list;
 	int connection_exists = search_active_connection(&list, data);
 	
@@ -227,7 +229,6 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 		}
 		/*if (current->connection_state != 1 || !(data.th_flags & TH_ACK)){
 			return;*/
-	
 		in_addr_t ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
 		in_addr_t ipsrc = inet_addr(inet_ntoa(data.ip_src));
 		in_addr_t ipdst = inet_addr(inet_ntoa(data.ip_dst));
@@ -238,7 +239,7 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 		else if(ipinitiator == ipdst){
 		    sprintf(filename, "%d.responder", current->connection_id);
 		}
-		write_to_file(filename, payload);
+		write_to_file(filename, payload, size_payload);
 	}
 }
 

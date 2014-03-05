@@ -54,7 +54,7 @@ int search_active_connection(struct connection_list ***list, struct packet_data 
 void print_connection_list(struct connection_list **list);
 
 /* prints payload */
-void print_payload_content(struct connection_list **list, struct packet_data data, const u_char* payload);
+void print_payload_content(struct connection_list **list, struct packet_data data, const char* payload, int size_payload);
 
 #endif
 

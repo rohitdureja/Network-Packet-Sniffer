@@ -277,7 +277,7 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
         size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
         size_csum = ntohs(ip->ip_len) - size_ip;
         tcp_csum = tcp_checksum(tcp, size_csum, inet_addr(inet_ntoa(ip->ip_src)),inet_addr(inet_ntoa(ip->ip_dst)));
-		payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
+		payload = (char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
         packet_data.th_sport = tcp->th_sport;
         packet_data.th_dport = tcp->th_dport;
         packet_data.th_flags = tcp->th_flags;
@@ -288,7 +288,7 @@ void packet_handler_hw2p2(u_char* user, const struct pcap_pkthdr *pkt_header, co
         packet_data.th_seq = ntohl(tcp->th_seq);
         duplicates = add_packet_to_connection_list(&list, packet_data);
         if(!tcp_csum && !duplicates && size_payload > 0) {
-			print_payload_content(&list, packet_data, payload);
+			print_payload_content(&list, packet_data, payload, size_payload);
         }
     }
 }
