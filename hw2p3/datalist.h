@@ -56,5 +56,7 @@ void print_connection_list(struct connection_list **list);
 /* prints payload */
 void print_payload_content(struct connection_list **list, struct packet_data data, const char* payload, int size_payload);
 
+void print_email_traffic(const char* payload, int size_payload);
+
 #endif
 

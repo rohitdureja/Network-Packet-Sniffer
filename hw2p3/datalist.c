@@ -263,6 +263,16 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 	}
 }
 
+void print_email_traffic(const char* payload, int size_payload){
+    int i;
+	for(i = 0 ; i < size_payload ; i++)
+		printf("%c", payload[i]);
+}
+
+int check_command(const char* payload){
+	return 0;
+}
+
 /*
 * prints metadata files for each connection
 */

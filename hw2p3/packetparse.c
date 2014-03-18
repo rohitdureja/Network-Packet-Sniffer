@@ -301,6 +301,8 @@ void packet_handler_hw2p3(u_char* user, const struct pcap_pkthdr *pkt_header, co
     const struct sniff_tcp *tcp;
     const struct sniff_udp *udp;
     const char *payload;
+	
+	struct packet_data packet_data;
 
     int size_ip;
     int size_tcp;
@@ -347,12 +349,21 @@ void packet_handler_hw2p3(u_char* user, const struct pcap_pkthdr *pkt_header, co
         size_csum = ntohs(ip->ip_len) - size_ip;
         tcp_csum = tcp_checksum(tcp, size_csum, inet_addr(inet_ntoa(ip->ip_src)),inet_addr(inet_ntoa(ip->ip_dst)));
 		payload = (char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
+        packet_data.th_sport = tcp->th_sport;
+        packet_data.th_dport = tcp->th_dport;
+        packet_data.th_flags = tcp->th_flags;
+        packet_data.payload_size = size_payload;
+        packet_data.th_flags = tcp->th_flags;
+        packet_data.ip_src = ip->ip_src;
+        packet_data.ip_dst = ip->ip_dst;
+        packet_data.th_seq = ntohl(tcp->th_seq);
+        duplicates = add_packet_to_connection_list(&list, packet_data);
 		
 		//TODO: handle smtp packet
-		printf("S_port = %d, D_port = %d\r\n",tcp->th_sport,tcp->th_dport);
-        //if(tcp->th_dport == 25){
-			printf("%s\r\n",payload);
-		//}
+		printf("S_port = %d, D_port = %d\r\n",htons(tcp->th_sport),htons(tcp->th_dport));
+        if(!duplicates && (htons(tcp->th_dport) == 25 || htons(tcp->th_sport) == 25)){
+			print_email_traffic(payload,size_payload);
+		}
     }
 }
 
