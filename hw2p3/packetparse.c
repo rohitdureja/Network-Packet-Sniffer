@@ -362,7 +362,7 @@ void packet_handler_hw2p3(u_char* user, const struct pcap_pkthdr *pkt_header, co
 		//TODO: handle smtp packet
 		printf("S_port = %d, D_port = %d\r\n",htons(tcp->th_sport),htons(tcp->th_dport));
         if(!duplicates && (htons(tcp->th_dport) == 25 || htons(tcp->th_sport) == 25)){
-			print_email_traffic(payload,size_payload);
+			parse_email_traffic(&list, payload,size_payload, packet_data);
 		}
     }
 }

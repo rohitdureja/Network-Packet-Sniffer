@@ -54,6 +54,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode->termination_status = 0;
 		newnode->syn_ack_status = 0;
 		newnode-> next_connection = NULL;
+		newnode-> accept = 0;
+		newnode -> status = 0;
 		*list = newnode;
 		duplicate = 0;
 	}
@@ -167,6 +169,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode->connection_state = 0;
 			newnode->termination_status = 0;
 			newnode -> next_connection = NULL;
+			newnode -> accept = 0;
+			newnode -> status = 0;
 			current -> next_connection = newnode;
 			duplicate = 0;
 		}
@@ -263,8 +267,51 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 	}
 }
 
-void print_email_traffic(const char* payload, int size_payload){
-    int i;
+void parse_email_traffic(struct connection_list **list, const char* payload, int size_payload, 
+		struct packet_data data){
+	int i;
+	int parse = 0;
+  char from[100];
+  char to[100];
+  char date[100];
+  struct connection_list *current;
+  char filename[50];
+  int connection_exists = search_active_connection(&list, data);
+  int len;
+  FILE *fp;
+  current = *list;
+  if (connection_exists != 1) {
+  	for(i = 0 ; i < connection_exists ; i++) {
+				current = current -> next_connection;
+		}
+		if (current->connection_id <= 0) {
+			return; //connection has not started
+		}
+		sprintf(filename, "%d.mail", current->connection_id);
+
+		if (current->status == 0) {
+			fp = fopen(filename, "a+");
+			fprintf(fp, "%s\n", inet_ntoa(current->ip_initiator));
+			fprintf(fp, "%s\n", inet_ntoa(current->ip_responder));
+			fclose(fp);
+			current->status = 1;
+		}
+  	// check to see if it is initial mail command
+  	parse = sscanf(payload, "MAIL FROM: <%[^>]", from);
+  	if (parse == 1) {
+  		len = strlen(from);
+  		strncpy(current->sender, from, len+1);
+  		if (current->status == 1) {
+  			fp = fopen(filename, "a+");
+  			fprintf(fp, "%s\n", current->sender);
+  			fclose(fp);
+  			current->status = 2;
+  		}
+  	}
+
+  	// check to see if it is RCPT TO command
+
+  }
 	for(i = 0 ; i < size_payload ; i++)
 		printf("%c", payload[i]);
 }

@@ -13,6 +13,4 @@ parse: $(OBJFILE) $(INPUTFILE)
 
 clean:
 	rm $(OBJFILE)
-	rm *.meta
-	rm *.initiator
-	rm *.responder
+	rm *.mail

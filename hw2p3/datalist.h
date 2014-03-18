@@ -41,6 +41,13 @@ struct connection_list {
 	struct connection_list *next_connection;
 	tcp_seq sequence_initiator_to_responder;
 	tcp_seq sequence_responder_to_initiator;
+	char date[100];
+	char sender[100];
+	char receiver[100];
+	unsigned int accept;
+
+	// keeps track of what we have already printed
+	unsigned int status;
 
 };
 
@@ -56,7 +63,7 @@ void print_connection_list(struct connection_list **list);
 /* prints payload */
 void print_payload_content(struct connection_list **list, struct packet_data data, const char* payload, int size_payload);
 
-void print_email_traffic(const char* payload, int size_payload);
+void parse_email_traffic(struct connection_list **list, const char* payload, int size_payload, struct packet_data data);
 
 #endif
 
