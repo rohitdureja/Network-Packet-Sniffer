@@ -56,6 +56,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode-> next_connection = NULL;
 		newnode -> status = 0;
 		newnode -> accept_status = 0;
+		newnode -> date_printed = 0;
 		*list = newnode;
 		duplicate = 0;
 	}
@@ -171,6 +172,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode -> next_connection = NULL;
 			newnode -> status = 0;
 			newnode -> accept_status = 0;
+			newnode -> date_printed = 0;
 			current -> next_connection = newnode;
 			duplicate = 0;
 		}
@@ -289,10 +291,12 @@ void parse_email_sender(struct connection_list **list, const char* payload, int 
 		}
 		sprintf(filename, "%d.mail", current->connection_id);
 
+		//Print body if necessary
+		if (current->status == 1){
+
 		// check to see if it is QUIT command
-		if(size_payload == 6){
+		//if(size_payload == 6){
 			if (check_prefix(payload,"QUIT",4)) {
-				current->status = 0; //body end
 				if(current->accept_status == 1){
 					fp = fopen(filename, "a+");
   					fprintf(fp, "ACCEPT\n");
@@ -303,13 +307,27 @@ void parse_email_sender(struct connection_list **list, const char* payload, int 
   					fprintf(fp, "REJECT\n");
   					fclose(fp);
 				}
+				current->status = 0; //body end
 				current->accept_status = 0;
+				current -> date_printed = 0;
+				return;
   			}
 
-  		}
+  		//}
 
-		//Print body if necessary
-		if (current->status == 1){
+			if(current -> date_printed == 0){
+				char buffer[100];
+				parse = sscanf(payload, "%[^\r^\n]\r\n%[^\r^\n]\r\n%[^\r^\n]\r\nDate: %[^+]", buffer, buffer, buffer, date);
+				//printf("%s\r\n",date);
+				if(parse){
+					//Print out from email address
+  					fp = fopen(filename, "a+");
+  					fprintf(fp, "%s\n", date);
+  					fclose(fp);
+				}
+				current -> date_printed = 1;
+			}
+
 			write_to_file(filename, payload, size_payload);
 			return;
 		}
@@ -339,11 +357,11 @@ void parse_email_sender(struct connection_list **list, const char* payload, int 
   		}
 
 		// check to see if it is DATA command
-		if(size_payload == 6){
+		//if(size_payload == 6){
   			if (check_prefix(payload,"DATA",4)) {
 				current->status = 1; //waiting for body
   			}
-		}
+		//}
 
 
 		//for(i = 0 ; i < size_payload ; i++)
@@ -382,11 +400,11 @@ void parse_email_receiver(struct connection_list **list, const char* payload, in
 		sprintf(filename, "%d.mail", current->connection_id);
 
 		// check to see if it is ACCEPT command
-		if(size_payload == 14){
+		//if(size_payload == 14){
   			if (check_prefix(payload,"250 Accepted",12)) {
 				current->accept_status = 1; //accepted
   			}
-		}
+		//}
 	}
 }
 

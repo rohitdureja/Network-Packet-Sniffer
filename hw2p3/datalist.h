@@ -45,6 +45,7 @@ struct connection_list {
 	// keeps track of what we have already printed
 	unsigned int status;
 	unsigned int accept_status;
+	unsigned int date_printed;
 
 };
 

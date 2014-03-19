@@ -9,7 +9,7 @@ all: $(HFILES) $(PARSEFILE)
 	$(CC) $(CFLAGS) $(OBJFILE) $(HFILES) $(PARSEFILE)
 
 parse: $(OBJFILE) $(INPUTFILE)
-	./$(OBJFILE) -t $(INPUTFILE)
+	./$(OBJFILE) -m $(INPUTFILE)
 
 clean:
 	rm $(OBJFILE)
