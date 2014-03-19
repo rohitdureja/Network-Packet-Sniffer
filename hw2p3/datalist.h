@@ -63,5 +63,9 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 
 void parse_email_sender(struct connection_list **list, const char* payload, int size_payload, struct packet_data data);
 
+int check_prefix(const char *str1, const char *prefix, int prefix_size);
+
+void parse_email_receiver(struct connection_list **list, const char* payload, int size_payload, struct packet_data data);
+
 #endif
 

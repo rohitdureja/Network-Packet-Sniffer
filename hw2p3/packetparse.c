@@ -359,14 +359,13 @@ void packet_handler_hw2p3(u_char* user, const struct pcap_pkthdr *pkt_header, co
         packet_data.th_seq = ntohl(tcp->th_seq);
         duplicates = add_packet_to_connection_list(&list, packet_data);
 	
-	//printf("\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
         // parse sender
-        if(!duplicates && (htons(tcp->th_dport) == 25 || htons(tcp->th_dport) == 578)){
-		parse_email_sender(&list, payload,size_payload, packet_data);
-	}
-	else if(!duplicates && (htons(tcp->th_sport) == 25 || htons(tcp->th_sport) == 578)){
-		parse_email_receiver(&list, payload,size_payload, packet_data);
-	}
+        if(!duplicates && (htons(tcp->th_dport) == 25 || htons(tcp->th_dport) == 587)){
+    		parse_email_sender(&list, payload,size_payload, packet_data);
+    	}
+    	else if(!duplicates && (htons(tcp->th_sport) == 25 || htons(tcp->th_sport) == 587)){
+    		parse_email_receiver(&list, payload,size_payload, packet_data);
+    	}
     }
 }
 

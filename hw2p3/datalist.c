@@ -242,7 +242,7 @@ write_to_file( char* file_name, const char *payload, int size_payload)
 * figure out which host packet data belongs to and print to respective file
 */
 void print_payload_content(struct connection_list **list, struct packet_data data, 
-	 const char* payload, int size_payload) {
+	const char* payload, int size_payload) {
 	struct connection_list * current = *list;
 	int connection_exists = search_active_connection(&list, data);
 	
@@ -270,8 +270,9 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 }
 
 void parse_email_sender(struct connection_list **list, const char* payload, int size_payload, 
-		struct packet_data data){
-	int parse = 0;
+	struct packet_data data) {
+
+		int parse = 0;
   	char from[100];
   	char to[100];
   	char date[100];
@@ -282,92 +283,84 @@ void parse_email_sender(struct connection_list **list, const char* payload, int 
   	FILE *fp;
   	current = *list;
   	if (connection_exists != 1) {
-		int i;
-  		for(i = 0 ; i < connection_exists ; i++) {
-			current = current -> next_connection;
-		}
-		if (current->connection_id <= 0) {
-			return; //connection has not started
-		}
-		sprintf(filename, "%d.mail", current->connection_id);
+			int i;
 
-		//Print body if necessary
-		if (current->status == 1){
+	  	for(i = 0 ; i < connection_exists ; i++) {
+				current = current -> next_connection;
+			}
+			if (current->connection_id <= 0) {
+				return; //connection has not started
+			}
+			sprintf(filename, "%d.mail", current->connection_id);
 
-		// check to see if it is QUIT command
-		//if(size_payload == 6){
-			if (check_prefix(payload,"QUIT",4)) {
-				if(current->accept_status == 1){
-					fp = fopen(filename, "a+");
-  					fprintf(fp, "ACCEPT\n");
-  					fclose(fp);	
+			//Print body if necessary
+			if (current->status == 1){
+
+				// check to see if it is QUIT command
+				if (check_prefix(payload,"QUIT",4)) {
+					if(current->accept_status == 1){
+						fp = fopen(filename, "a+");
+							fprintf(fp, "ACCEPT");
+							fclose(fp);	
+					}
+
+					else{
+						fp = fopen(filename, "a+");
+							fprintf(fp, "REJECT");
+							fclose(fp);
+					}
+
+					current->status = 0; //body end
+					current->accept_status = 0;
+					current -> date_printed = 0;
+					return;
+		  	}
+
+				if(current -> date_printed == 0){
+					char buffer[100];
+					parse = sscanf(payload, "%[^\r^\n]\r\n%[^\r^\n]\r\n%[^\r^\n]\r\nDate: %[^+]", buffer, buffer, buffer, date);
+					if(parse){
+						//Print out from email address
+							fp = fopen(filename, "a+");
+							fprintf(fp, "%s\n", date);
+							fclose(fp);
+					}
+					current -> date_printed = 1;
 				}
-				else{
-					fp = fopen(filename, "a+");
-  					fprintf(fp, "REJECT\n");
-  					fclose(fp);
-				}
-				current->status = 0; //body end
-				current->accept_status = 0;
-				current -> date_printed = 0;
+
+				write_to_file(filename, payload, size_payload);
 				return;
-  			}
-
-  		//}
-
-			if(current -> date_printed == 0){
-				char buffer[100];
-				parse = sscanf(payload, "%[^\r^\n]\r\n%[^\r^\n]\r\n%[^\r^\n]\r\nDate: %[^+]", buffer, buffer, buffer, date);
-				//printf("%s\r\n",date);
-				if(parse){
-					//Print out from email address
-  					fp = fopen(filename, "a+");
-  					fprintf(fp, "%s\n", date);
-  					fclose(fp);
-				}
-				current -> date_printed = 1;
 			}
 
-			write_to_file(filename, payload, size_payload);
-			return;
-		}
+			// check to see if it is initial mail command
+			parse = sscanf(payload, "MAIL FROM: <%[^>]", from);
+			if (parse == 1) {
+				//Print out IP address
+				fp = fopen(filename, "a+");
+				fprintf(fp, "%s\n", inet_ntoa(current->ip_initiator));
+				fprintf(fp, "%s\n", inet_ntoa(current->ip_responder));
+				fclose(fp);
 
-  		// check to see if it is initial mail command
-  		parse = sscanf(payload, "MAIL FROM: <%[^>]", from);
-  		if (parse == 1) {
-			//Print out IP address
-			fp = fopen(filename, "a+");
-			fprintf(fp, "%s\n", inet_ntoa(current->ip_initiator));
-			fprintf(fp, "%s\n", inet_ntoa(current->ip_responder));
-			fclose(fp);
+				//Print out from email address
+				fp = fopen(filename, "a+");
+				fprintf(fp, "%s\n", from);
+				fclose(fp);
+			}
 
-			//Print out from email address
-  			fp = fopen(filename, "a+");
-  			fprintf(fp, "%s\n", from);
-  			fclose(fp);
-  		}
-
-		// check to see if it is RCPT TO command
-  		parse = sscanf(payload, "RCPT TO: <%[^>]", to);
-  		if (parse == 1) {
+			// check to see if it is RCPT TO command
+			parse = sscanf(payload, "RCPT TO: <%[^>]", to);
+			if (parse == 1) {
 			//Print out to email address
-  			fp = fopen(filename, "a+");
-  			fprintf(fp, "%s\n", to);
-  			fclose(fp);
-  		}
+				fp = fopen(filename, "a+");
+				fprintf(fp, "%s\n", to);
+				fclose(fp);
+			}
 
-		// check to see if it is DATA command
-		//if(size_payload == 6){
-  			if (check_prefix(payload,"DATA",4)) {
+			if (check_prefix(payload,"DATA",4)) {
 				current->status = 1; //waiting for body
-  			}
-		//}
+			}
 
-
-		//for(i = 0 ; i < size_payload ; i++)
-		//	printf("%c", payload[i]);
-
-  	}
+		}
 }
 
 int check_prefix(const char *str1, const char *prefix, int prefix_size){
@@ -382,7 +375,7 @@ int check_prefix(const char *str1, const char *prefix, int prefix_size){
 
 void parse_email_receiver(struct connection_list **list, const char* payload, int size_payload, 
 		struct packet_data data){
-	int parse = 0;
+		int parse = 0;
   	struct connection_list *current;
   	char filename[50];
   	int connection_exists = search_active_connection(&list, data);
@@ -391,7 +384,7 @@ void parse_email_receiver(struct connection_list **list, const char* payload, in
   	current = *list;
   	if (connection_exists != 1) {
 		int i;
-  		for(i = 0 ; i < connection_exists ; i++) {
+  	for(i = 0 ; i < connection_exists ; i++) {
 			current = current -> next_connection;
 		}
 		if (current->connection_id <= 0) {
@@ -400,11 +393,9 @@ void parse_email_receiver(struct connection_list **list, const char* payload, in
 		sprintf(filename, "%d.mail", current->connection_id);
 
 		// check to see if it is ACCEPT command
-		//if(size_payload == 14){
-  			if (check_prefix(payload,"250 Accepted",12)) {
-				current->accept_status = 1; //accepted
-  			}
-		//}
+		if (check_prefix(payload,"250 Accepted",12) || check_prefix(payload, "250 ok", 6)) {
+			current->accept_status = 1; //accepted
+		}
 	}
 }
 
