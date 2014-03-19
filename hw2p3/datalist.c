@@ -54,8 +54,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode->termination_status = 0;
 		newnode->syn_ack_status = 0;
 		newnode-> next_connection = NULL;
-		newnode-> accept = 0;
 		newnode -> status = 0;
+		newnode -> accept_status = 0;
 		*list = newnode;
 		duplicate = 0;
 	}
@@ -169,8 +169,8 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode->connection_state = 0;
 			newnode->termination_status = 0;
 			newnode -> next_connection = NULL;
-			newnode -> accept = 0;
 			newnode -> status = 0;
+			newnode -> accept_status = 0;
 			current -> next_connection = newnode;
 			duplicate = 0;
 		}
@@ -191,9 +191,9 @@ int search_active_connection(struct connection_list ***list, struct packet_data 
 	while(current != NULL)
 	{
 		ipinitiator = inet_addr(inet_ntoa(current->ip_initiator));
-    ipresponder = inet_addr(inet_ntoa(current->ip_responder));
-    ipsrc = inet_addr(inet_ntoa(current->packet_data.ip_src));
-    ipdst = inet_addr(inet_ntoa(current->packet_data.ip_dst));
+    		ipresponder = inet_addr(inet_ntoa(current->ip_responder));
+    		ipsrc = inet_addr(inet_ntoa(current->packet_data.ip_src));
+    		ipdst = inet_addr(inet_ntoa(current->packet_data.ip_dst));
 
    	if(ipinitiator == ipsrc || ipinitiator == ipdst)
 	  {
@@ -267,57 +267,127 @@ void print_payload_content(struct connection_list **list, struct packet_data dat
 	}
 }
 
-void parse_email_traffic(struct connection_list **list, const char* payload, int size_payload, 
+void parse_email_sender(struct connection_list **list, const char* payload, int size_payload, 
 		struct packet_data data){
-	int i;
 	int parse = 0;
-  char from[100];
-  char to[100];
-  char date[100];
-  struct connection_list *current;
-  char filename[50];
-  int connection_exists = search_active_connection(&list, data);
-  int len;
-  FILE *fp;
-  current = *list;
-  if (connection_exists != 1) {
-  	for(i = 0 ; i < connection_exists ; i++) {
-				current = current -> next_connection;
+  	char from[100];
+  	char to[100];
+  	char date[100];
+  	struct connection_list *current;
+  	char filename[50];
+  	int connection_exists = search_active_connection(&list, data);
+  	int len;
+  	FILE *fp;
+  	current = *list;
+  	if (connection_exists != 1) {
+		int i;
+  		for(i = 0 ; i < connection_exists ; i++) {
+			current = current -> next_connection;
 		}
 		if (current->connection_id <= 0) {
 			return; //connection has not started
 		}
 		sprintf(filename, "%d.mail", current->connection_id);
 
-		if (current->status == 0) {
+		// check to see if it is QUIT command
+		if(size_payload == 6){
+			if (check_prefix(payload,"QUIT",4)) {
+				current->status = 0; //body end
+				if(current->accept_status == 1){
+					fp = fopen(filename, "a+");
+  					fprintf(fp, "ACCEPT\n");
+  					fclose(fp);	
+				}
+				else{
+					fp = fopen(filename, "a+");
+  					fprintf(fp, "REJECT\n");
+  					fclose(fp);
+				}
+				current->accept_status = 0;
+  			}
+
+  		}
+
+		//Print body if necessary
+		if (current->status == 1){
+			write_to_file(filename, payload, size_payload);
+			return;
+		}
+
+  		// check to see if it is initial mail command
+  		parse = sscanf(payload, "MAIL FROM: <%[^>]", from);
+  		if (parse == 1) {
+			//Print out IP address
 			fp = fopen(filename, "a+");
 			fprintf(fp, "%s\n", inet_ntoa(current->ip_initiator));
 			fprintf(fp, "%s\n", inet_ntoa(current->ip_responder));
 			fclose(fp);
-			current->status = 1;
-		}
-  	// check to see if it is initial mail command
-  	parse = sscanf(payload, "MAIL FROM: <%[^>]", from);
-  	if (parse == 1) {
-  		len = strlen(from);
-  		strncpy(current->sender, from, len+1);
-  		if (current->status == 1) {
+
+			//Print out from email address
   			fp = fopen(filename, "a+");
-  			fprintf(fp, "%s\n", current->sender);
+  			fprintf(fp, "%s\n", from);
   			fclose(fp);
-  			current->status = 2;
   		}
+
+		// check to see if it is RCPT TO command
+  		parse = sscanf(payload, "RCPT TO: <%[^>]", to);
+  		if (parse == 1) {
+			//Print out to email address
+  			fp = fopen(filename, "a+");
+  			fprintf(fp, "%s\n", to);
+  			fclose(fp);
+  		}
+
+		// check to see if it is DATA command
+		if(size_payload == 6){
+  			if (check_prefix(payload,"DATA",4)) {
+				current->status = 1; //waiting for body
+  			}
+		}
+
+
+		//for(i = 0 ; i < size_payload ; i++)
+		//	printf("%c", payload[i]);
+
   	}
-
-  	// check to see if it is RCPT TO command
-
-  }
-	for(i = 0 ; i < size_payload ; i++)
-		printf("%c", payload[i]);
 }
 
-int check_command(const char* payload){
-	return 0;
+int check_prefix(const char *str1, const char *prefix, int prefix_size){
+	int i;
+	for (i = 0; i< prefix_size; i++){
+		if(str1[i]!=prefix[i]){
+			return 0;
+		}
+	}
+	return 1;
+}
+
+void parse_email_receiver(struct connection_list **list, const char* payload, int size_payload, 
+		struct packet_data data){
+	int parse = 0;
+  	struct connection_list *current;
+  	char filename[50];
+  	int connection_exists = search_active_connection(&list, data);
+  	int len;
+  	FILE *fp;
+  	current = *list;
+  	if (connection_exists != 1) {
+		int i;
+  		for(i = 0 ; i < connection_exists ; i++) {
+			current = current -> next_connection;
+		}
+		if (current->connection_id <= 0) {
+			return; //connection has not started
+		}
+		sprintf(filename, "%d.mail", current->connection_id);
+
+		// check to see if it is ACCEPT command
+		if(size_payload == 14){
+  			if (check_prefix(payload,"250 Accepted",12)) {
+				current->accept_status = 1; //accepted
+  			}
+		}
+	}
 }
 
 /*
