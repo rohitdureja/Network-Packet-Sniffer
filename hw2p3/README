@@ -1,6 +1,6 @@
 
 CIS 551: Computer and Network Security
-Homework II Part II
+Homework II Part III
 Group Members:	Ashutosh Goel
 		Bolei Fu
 		Rohit Dureja
@@ -45,6 +45,7 @@ The data structure offers a method to check for already active connections. It c
 
 To check for duplicates, the sequence number of the packets from both the initiator and the responder are tracked and updated in the connection list. If a packet comes with a sequence number which is less than the sequence number in the connection list, the packets is tagged duplicate the its payload data is not written to the files.
 
+To capture SMTP packet information, we parse the TCP payload and call functions parse_email_receiver() and parse_email_sender, depending on the direction of the data flow. These parsers extract information from TCP fields; like MAIL:, RCPT:, DATA, etc to generate the output files. The SMTP status messages are parsed to keep track of the connection status. 
 ---
 
 References
