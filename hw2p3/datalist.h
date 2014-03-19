@@ -46,6 +46,7 @@ struct connection_list {
 	unsigned int status;
 	unsigned int accept_status;
 	unsigned int date_printed;
+	unsigned int from_to_status;
 
 };
 

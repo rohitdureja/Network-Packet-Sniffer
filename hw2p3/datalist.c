@@ -57,6 +57,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 		newnode -> status = 0;
 		newnode -> accept_status = 0;
 		newnode -> date_printed = 0;
+		newnode -> from_to_status = 0;
 		*list = newnode;
 		duplicate = 0;
 	}
@@ -173,6 +174,7 @@ int add_packet_to_connection_list(struct connection_list **list, struct packet_d
 			newnode -> status = 0;
 			newnode -> accept_status = 0;
 			newnode -> date_printed = 0;
+			newnode -> from_to_status = 0;
 			current -> next_connection = newnode;
 			duplicate = 0;
 		}
@@ -320,7 +322,14 @@ void parse_email_sender(struct connection_list **list, const char* payload, int 
 					char buffer[100];
 					parse = sscanf(payload, "%[^\r^\n]\r\n%[^\r^\n]\r\n%[^\r^\n]\r\nDate: %[^+]", buffer, buffer, buffer, date);
 					if(parse){
+
 						//Print out from email address
+							if (current->from_to_status < 2) {
+						  	fprintf(fp, "\n");
+						  	if (current->from_to_status == 0) {
+						  		fprintf(fp, "\n");
+						  	}
+						  }
 							fp = fopen(filename, "a+");
 							fprintf(fp, "%s\n", date);
 							fclose(fp);
@@ -345,15 +354,20 @@ void parse_email_sender(struct connection_list **list, const char* payload, int 
 				fp = fopen(filename, "a+");
 				fprintf(fp, "%s\n", from);
 				fclose(fp);
+				current->from_to_status = 1;
 			}
 
 			// check to see if it is RCPT TO command
 			parse = sscanf(payload, "RCPT TO: <%[^>]", to);
 			if (parse == 1) {
 			//Print out to email address
+				if (current -> from_to_status == 0) {
+					fprintf(fp, "\n");
+				}
 				fp = fopen(filename, "a+");
 				fprintf(fp, "%s\n", to);
 				fclose(fp);
+				current -> from_to_status = 2;
 			}
 
 			if (check_prefix(payload,"DATA",4)) {
